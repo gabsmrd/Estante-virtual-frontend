@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estante Virtual - Tracker de Leitura</title>
+    <!-- Google Fonts: Lora (Serifa Aconchegante) e Montserrat (Moderna) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,700;1,400&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome para Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <i class="fas fa-book-open logo-icon"></i>
+                <h1>Estante Virtual</h1>
+            </div>
+            <div class="search-box">
+                <input type="text" id="inputPesquisa" placeholder="Buscar livro ou autor no Google Books...">
+                <button id="btnPesquisar"><i class="fas fa-search"></i></button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- SEÇÃO 1: Resultados da API Pública -->
+        <section id="secaoPesquisa" class="hidden">
+            <h2 class="section-title"><i class="fas fa-globe"></i> Resultados no Google Books</h2>
+            <div id="resultadosPesquisa" class="book-grid"></div>
+        </section>
+
+        <!-- SEÇÃO 2: Minha Estante (Dados do MySQL via Spring Boot) -->
+        <section id="secaoEstante">
+            <div class="section-header">
+                <h2 class="section-title"><i class="fas fa-bookmark"></i> Meus Livros Salvos</h2>
+            </div>
+            <div id="minhaEstanteGrid" class="book-grid">
+                <!-- Cards salvos no banco serão renderizados via JavaScript aqui -->
+            </div>
+        </section>
+    </main>
+
+    <!-- MODAL: Editar Review e Nota (Operação PUT do CRUD) -->
+    <div id="modalReview" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal" id="btnFecharModal">&times;</span>
+            <h2 class="font-serif">Minha Resenha</h2>
+            <p id="modalTituloLivro" class="modal-subtitle">Título do Livro</p>
+            
+            <form id="formReview">
+                <input type="hidden" id="modalLivroId">
+                
+                <div class="form-group">
+                    <label for="modalStatus">Status de Leitura:</label>
+                    <select id="modalStatus">
+                        <option value="QUERO_LER">Quero Ler</option>
+                        <option value="LENDO">Lendo</option>
+                        <option value="LIDO">Lido</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="modalNota">Nota (1 a 5 estrelas):</label>
+                    <select id="modalNota">
+                        <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
+                        <option value="4">⭐⭐⭐⭐ (4/5)</option>
+                        <option value="3">⭐⭐⭐ (3/5)</option>
+                        <option value="2">⭐⭐ (2/5)</option>
+                        <option value="1">⭐ (1/5)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="modalTextoReview">Resenha / Anotações:</label>
+                    <textarea id="modalTextoReview" rows="4" placeholder="Escreva suas impressões sobre o livro..."></textarea>
+                </div>
+
+                <button type="submit" class="btn-primary" style="width: 100%;">Salvar Resenha</button>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        <p>Estante Virtual &copy; — Projeto Final Full-Stack (Spring Boot + MySQL + HTML/JS)</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
