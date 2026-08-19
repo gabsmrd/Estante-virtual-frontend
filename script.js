@@ -1,6 +1,7 @@
 // --- CONFIGURAÇÃO DAS URLS ---
-const API_GOOGLE = 'https://www.googleapis.com/books/v1/volumes?q=';
-const API_BACKEND = 'http://localhost:8080/api/livros'; // Endereço do seu Spring Boot
+const API_EXTERNA = 'https://openlibrary.org/search.json?q=';
+const API_BACKEND = 'http://localhost:8080/api/livros';  // Endereço do seu Spring Boot
+let livrosNaMemoria = [];
 
 // --- ELEMENTOS DO DOM ---
 const inputPesquisa = document.getElementById('inputPesquisa');
@@ -24,40 +25,46 @@ formReview.addEventListener('submit', salvarReviewModal);
 document.addEventListener('DOMContentLoaded', carregarEstanteDoBanco);
 
 // ==========================================
-// 1. BUSCA NA API PÚBLICA (GOOGLE BOOKS)
+// 1. BUSCA NA API PÚBLICA (OPEN LIBRARY)
 // ==========================================
-async function buscarGoogleBooks() {
+async function buscarGoogleBooks() { // Mantivemos o nome da função para não quebrar o seu botão de pesquisa
     const termo = inputPesquisa.value.trim();
     if (!termo) return alert('Digite o nome de um livro ou autor.');
 
     try {
-        resultadosPesquisa.innerHTML = '<p>Buscando na biblioteca do Google...</p>';
+        resultadosPesquisa.innerHTML = '<p>Buscando na Open Library...</p>';
         secaoPesquisa.classList.remove('hidden');
 
-        const res = await fetch(`${API_GOOGLE}${encodeURIComponent(termo)}`);
+        // Faz a requisição para a nova API
+        const res = await fetch(`${API_EXTERNA}${encodeURIComponent(termo)}`);
         const data = await res.json();
 
-        if (!data.items) {
+        // A Open Library devolve os resultados dentro de "docs"
+        if (!data.docs || data.docs.length === 0) {
             resultadosPesquisa.innerHTML = '<p>Nenhum livro encontrado.</p>';
             return;
         }
 
-        renderizarResultadosGoogle(data.items);
+        // Pega apenas os 10 primeiros resultados para a tela não travar
+        renderizarResultadosOpenLibrary(data.docs.slice(0, 10));
     } catch (err) {
-        console.error('Erro ao buscar no Google Books:', err);
-        resultadosPesquisa.innerHTML = '<p>Erro ao conectar com a API do Google.</p>';
+        console.error('Erro ao buscar na API:', err);
+        resultadosPesquisa.innerHTML = '<p>Erro ao conectar com a API de busca.</p>';
     }
 }
 
-function renderizarResultadosGoogle(items) {
+function renderizarResultadosOpenLibrary(items) {
     resultadosPesquisa.innerHTML = '';
 
     items.forEach(item => {
-        const info = item.volumeInfo;
-        const titulo = info.title || 'Título Desconhecido';
-        const autor = info.authors ? info.authors.join(', ') : 'Autor Desconhecido';
-        const capa = info.imageLinks?.thumbnail || 'https://via.placeholder.com/150x220?text=Sem+Capa';
-        const paginas = info.pageCount || 0;
+        const titulo = item.title || 'Título Desconhecido';
+        const autor = item.author_name ? item.author_name.join(', ') : 'Autor Desconhecido';
+        const paginas = item.number_of_pages_median || 0;
+        
+        // Aqui resolvemos o erro "ERR_CERT_AUTHORITY_INVALID" trocando o link da imagem sem capa
+        const capa = item.cover_i 
+            ? `https://covers.openlibrary.org/b/id/${item.cover_i}-M.jpg` 
+            : 'https://dummyimage.com/150x220/cccccc/000000.png&text=Sem+Capa';
 
         const card = document.createElement('div');
         card.className = 'book-card';
@@ -146,22 +153,29 @@ async function salvarReviewModal(e) {
     e.preventDefault();
 
     const id = document.getElementById('modalLivroId').value;
-    const dadosAtualizados = {
-        statusLeitura: document.getElementById('modalStatus').value,
-        nota: parseInt(document.getElementById('modalNota').value),
-        review: document.getElementById('modalTextoReview').value
-    };
+    // Pega o valor da nota e garante que é um número, se falhar, assume 5 (evitando o erro null)
+    const notaValor = parseInt(document.getElementById('modalNota').value) || 5; 
 
     try {
+        // PASSO 1: Busca o livro atual no banco para não perder o título, autor e páginas
+        const resGet = await fetch(`${API_BACKEND}/${id}`);
+        const livroCompleto = await resGet.json();
+
+        // PASSO 2: Modifica apenas o que o usuário mexeu no modal
+        livroCompleto.statusLeitura = document.getElementById('modalStatus').value;
+        livroCompleto.nota = notaValor;
+        livroCompleto.review = document.getElementById('modalTextoReview').value;
+
+        // PASSO 3: Envia o livro inteirinho de volta para o Spring Boot salvar
         const res = await fetch(`${API_BACKEND}/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dadosAtualizados)
+            body: JSON.stringify(livroCompleto)
         });
 
         if (res.ok) {
-            modalReview.classList.add('hidden');
-            carregarEstanteDoBanco();
+            modalReview.classList.add('hidden'); // Fecha a caixinha
+            carregarEstanteDoBanco(); // Atualiza a tela com as estrelinhas
         } else {
             alert('Erro ao atualizar a resenha.');
         }
