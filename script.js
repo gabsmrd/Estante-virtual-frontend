@@ -153,37 +153,38 @@ async function salvarReviewModal(e) {
     e.preventDefault();
 
     const id = document.getElementById('modalLivroId').value;
-    // Pega o valor da nota e garante que é um número, se falhar, assume 5 (evitando o erro null)
-    const notaValor = parseInt(document.getElementById('modalNota').value) || 5; 
+    const notaValor = parseInt(document.getElementById('modalNota').value) || 5;
+    const statusSelecionado = document.getElementById('modalStatus').value.toUpperCase();
+
+    // Criamos um pacote com os 3 dados que o Java precisa.
+    // Preenchemos o resto com dados vazios/zero apenas para o Java não dar aquele erro de "null"
+    const pacoteDeAtualizacao = {
+        statusLeitura: statusSelecionado,
+        nota: notaValor,
+        review: document.getElementById('modalTextoReview').value,
+        titulo: "ignorado",
+        autor: "ignorado",
+        capaUrl: "ignorado",
+        totalPaginas: 0 
+    };
 
     try {
-        // PASSO 1: Busca o livro atual no banco para não perder o título, autor e páginas
-        const resGet = await fetch(`${API_BACKEND}/${id}`);
-        const livroCompleto = await resGet.json();
-
-        // PASSO 2: Modifica apenas o que o usuário mexeu no modal
-        livroCompleto.statusLeitura = document.getElementById('modalStatus').value;
-        livroCompleto.nota = notaValor;
-        livroCompleto.review = document.getElementById('modalTextoReview').value;
-
-        // PASSO 3: Envia o livro inteirinho de volta para o Spring Boot salvar
         const res = await fetch(`${API_BACKEND}/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(livroCompleto)
+            body: JSON.stringify(pacoteDeAtualizacao)
         });
 
         if (res.ok) {
-            modalReview.classList.add('hidden'); // Fecha a caixinha
-            carregarEstanteDoBanco(); // Atualiza a tela com as estrelinhas
+            modalReview.classList.add('hidden'); // Fecha a janela da resenha
+            carregarEstanteDoBanco(); // Atualiza as estrelinhas na tela
         } else {
-            alert('Erro ao atualizar a resenha.');
+            alert('Erro ao salvar no banco. Código: ' + res.status);
         }
     } catch (err) {
         console.error('Erro PUT:', err);
     }
 }
-
 // [DELETE] Remover livro do MySQL
 async function deletarLivro(id, titulo) {
     if (!confirm(`Tem certeza que deseja remover "${titulo}" da sua estante?`)) return;
