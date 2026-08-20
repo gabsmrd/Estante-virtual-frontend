@@ -1,6 +1,17 @@
 // O endereço do seu Java (ajuste se a porta for diferente)
 const API_URL = 'http://localhost:8080/livros';
 
+// Verifica se existe um usuário logado ao carregar a página
+const usuarioLogado = JSON.parse(localStorage.getItem('usuarioLogado'));
+
+if (!usuarioLogado) {
+    // Se não estiver logado, manda direto para o login!
+    window.location.href = 'login.html';
+} else {
+    console.log('Usuário conectado:', usuarioLogado.nome);
+    // Aqui você carrega a foto, a meta e os livros dele!
+}
+
 async function carregarEstanteDoJava() {
     const container = document.getElementById('estante-container');
 
