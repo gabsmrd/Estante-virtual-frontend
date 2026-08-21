@@ -1,79 +1,170 @@
-// O endereço do seu Java (ajuste se a porta for diferente)
-const API_URL = 'http://localhost:8080/livros';
+const API_URL = 'http://localhost:8080/api/livros';
 
-// Verifica se existe um usuário logado ao carregar a página
-const usuarioLogado = JSON.parse(localStorage.getItem('usuarioLogado'));
+// 1. VERIFICAÇÃO DE SEGURANÇA E CARREGAMENTO
+document.addEventListener('DOMContentLoaded', () => {
+    const usuarioLogado = JSON.parse(localStorage.getItem('usuarioLogado'));
 
-if (!usuarioLogado) {
-    // Se não estiver logado, manda direto para o login!
+    // Se não estiver logado, manda pro login
+    if (!usuarioLogado) {
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // Atualiza os dados visuais na barra lateral com as informações do usuário
+    atualizarPerfil(usuarioLogado);
+
+    // Inicia o carregamento dos livros na tela
+    carregarLivros();
+});
+
+// 2. FUNÇÃO SAIR
+function sair() {
+    localStorage.removeItem('usuarioLogado');
     window.location.href = 'login.html';
-} else {
-    console.log('Usuário conectado:', usuarioLogado.nome);
-    // Aqui você carrega a foto, a meta e os livros dele!
 }
 
-async function carregarEstanteDoJava() {
-    const container = document.getElementById('estante-container');
+// 3. ATUALIZAR PERFIL
+function atualizarPerfil(usuario) {
+    const nomeEl = document.getElementById('user-nome');
+    const emailEl = document.getElementById('user-email');
+    const fotoEl = document.getElementById('user-foto');
+    const metaTotalEl = document.getElementById('meta-total');
 
+    if (nomeEl) nomeEl.textContent = usuario.nome;
+    if (emailEl) emailEl.textContent = usuario.email;
+    if (fotoEl && usuario.fotoUrl) fotoEl.src = usuario.fotoUrl;
+    if (metaTotalEl && usuario.metaLeitura) metaTotalEl.textContent = `/ ${usuario.metaLeitura}`;
+}
+
+// 4. CARREGAR LIVROS DO USUÁRIO LOGADO
+async function carregarLivros() {
+    const usuarioLogado = JSON.parse(localStorage.getItem('usuarioLogado'));
+    
     try {
-        const resposta = await fetch(API_URL);
+        const resposta = await fetch(`${API_URL}/usuario/${usuarioLogado.id}`);
+        
+        if (!resposta.ok) throw new Error('Erro ao buscar livros do banco');
+
         const livros = await resposta.json();
-
-        // Limpa os cards de teste para colocar os reais
-        container.innerHTML = '';
-
-        // Percorre cada livro que veio do banco de dados
-        livros.forEach(livro => {
-            
-            // 1. Define a cor da tag baseado no status
-            let tagStatus = '';
-            if (livro.statusLeitura === 'LIDO') {
-                tagStatus = `<span class="absolute top-5 left-5 bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-[10px] font-bold z-10">Lido</span>`;
-            } else if (livro.statusLeitura === 'LENDO') {
-                tagStatus = `<span class="absolute top-5 left-5 bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold z-10">Lendo</span>`;
-            }
-
-            // 2. Monta as estrelinhas amarelas
-            let estrelas = '';
-            const nota = livro.nota || 0;
-            for (let i = 1; i <= 5; i++) {
-                if (i <= nota) {
-                    estrelas += '★'; // Estrela preenchida
-                } else {
-                    estrelas += '<span class="text-slate-200">★</span>'; // Estrela cinza vazia
-                }
-            }
-
-            // 3. Verifica a capa (se não tiver, coloca uma padrão)
-            const capa = livro.capaUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=300&auto=format&fit=crop';
-
-            // 4. Cria o HTML do card perfeitamente estilizado
-            const cardHTML = `
-                <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 min-w-[160px] shrink-0 relative transition-transform hover:scale-105">
-                    ${tagStatus}
-                    <img src="${capa}" class="w-full h-36 object-cover rounded-xl mb-3">
-                    <h3 class="font-bold text-sm text-slate-800 truncate" title="${livro.titulo}">${livro.titulo}</h3>
-                    <p class="text-[11px] text-slate-500 mb-1 truncate">${livro.autor}</p>
-                    <div class="text-yellow-400 text-[10px]">${estrelas}</div>
-                </div>
-            `;
-            
-            container.innerHTML += cardHTML;
-        });
-
-        // 5. Por fim, recoloca o card vazio de "Adicionar" no final da lista
-        container.innerHTML += `
-            <div class="border-2 border-dashed border-slate-200 rounded-2xl min-w-[160px] shrink-0 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 hover:border-indigo-300 hover:text-indigo-500 transition-colors cursor-pointer min-h-[220px]">
-                <i class="ph ph-plus text-2xl mb-2"></i>
-                <span class="text-xs font-medium">Adicionar livro</span>
-            </div>
-        `;
+        renderizarLivros(livros);
+        atualizarEstatisticas(livros, usuarioLogado.metaLeitura);
 
     } catch (erro) {
-        console.error("Erro ao buscar livros do Java:", erro);
-        container.innerHTML = '<p class="text-red-500 text-sm">Erro ao conectar com o servidor.</p>';
+        console.error('Erro de conexão:', erro);
+        const container = document.getElementById('estante-container');
+        if (container) container.innerHTML = '<p class="text-red-500 text-sm">Erro ao carregar a estante. Verifique se o Backend está rodando.</p>';
     }
 }
 
-// Inicia a função assim que o arquivo for lido
-carregarEstanteDoJava();
+// 5. RENDERIZAR OS LIVROS NA TELA (Versão correta e única)
+function renderizarLivros(livros) {
+    const container = document.getElementById('estante-container');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (livros.length === 0) {
+        container.innerHTML = '<p class="text-slate-500 text-sm">Sua estante está vazia. Adicione um livro!</p>';
+        return;
+    }
+
+    livros.forEach(livro => {
+        const card = document.createElement('div');
+        card.className = 'bg-white p-3 rounded-2xl shadow-sm border border-slate-100 min-w-[160px] shrink-0 relative flex flex-col';
+        
+        const statusCor = livro.statusLeitura === 'LENDO' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700';
+
+        card.innerHTML = `
+            <span class="absolute top-5 left-5 ${statusCor} px-2 py-0.5 rounded-full text-[10px] font-bold z-10">${livro.statusLeitura || 'SALVO'}</span>
+            <img src="${livro.capaUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=300&auto=format&fit=crop'}" class="w-full h-36 object-cover rounded-xl mb-3">
+            <h3 class="font-bold text-sm text-slate-800 truncate">${livro.titulo}</h3>
+            <p class="text-[11px] text-slate-500 mb-1 truncate">${livro.autor}</p>
+            <div class="flex justify-between items-center mt-auto pt-2">
+                <div class="text-yellow-400 text-[10px]">★ ${livro.nota || '5.0'}</div>
+                <button onclick="deletarLivro(${livro.id})" class="text-red-500 hover:text-red-700 text-[10px] font-bold transition-colors">Excluir</button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+// 6. ATUALIZAR ESTATÍSTICAS (Meta de Leitura e Badge)
+function atualizarEstatisticas(livros, meta) {
+    const lidosCount = livros.filter(l => l.statusLeitura === 'LIDO').length;
+    const lendoCount = livros.filter(l => l.statusLeitura === 'LENDO').length;
+    
+    // Atualiza o contador de Lidos
+    const spanLidos = document.getElementById('lidos-count');
+    if (spanLidos) spanLidos.textContent = lidosCount;
+
+    // Atualiza a notificação (badge) de livros "Lendo" no menu
+    const badgeLendo = document.getElementById('badge-lendo');
+    if (badgeLendo) badgeLendo.textContent = lendoCount;
+
+    // Atualiza barra de progresso
+    const barraProgresso = document.getElementById('barra-progresso'); 
+    if (barraProgresso && meta > 0) {
+        const porcentagem = Math.min((lidosCount / meta) * 100, 100);
+        barraProgresso.style.width = `${porcentagem}%`;
+        
+        const textoPorcentagem = document.getElementById('texto-porcentagem');
+        if (textoPorcentagem) textoPorcentagem.textContent = `${Math.round(porcentagem)}% concluído`;
+    }
+}
+
+// 7. ADICIONAR NOVO LIVRO
+const formLivro = document.getElementById('form-novo-livro');
+if (formLivro) {
+    formLivro.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const usuarioLogado = JSON.parse(localStorage.getItem('usuarioLogado'));
+
+        const novoLivro = {
+            titulo: document.getElementById('input-titulo').value,
+            autor: document.getElementById('input-autor').value,
+            capaUrl: document.getElementById('input-capa').value,
+            statusLeitura: document.getElementById('select-status').value, 
+            nota: document.getElementById('input-nota') ? parseInt(document.getElementById('input-nota').value) : null,
+            usuario: { id: usuarioLogado.id } 
+        };
+
+        try {
+            const resposta = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(novoLivro)
+            });
+
+            if (resposta.ok) {
+                if (typeof fecharModal === 'function') fecharModal();
+                formLivro.reset();
+                carregarLivros(); // Atualiza estante e barra de progresso
+            } else {
+                alert('Erro ao salvar o livro.');
+            }
+        } catch (erro) {
+            console.error('Erro ao adicionar livro:', erro);
+            alert('Falha na comunicação com o servidor.');
+        }
+    });
+}
+
+// 8. DELETAR LIVRO
+async function deletarLivro(id) {
+    if (confirm('Tem certeza que deseja excluir este livro?')) {
+        try {
+            const resposta = await fetch(`${API_URL}/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (resposta.ok) {
+                carregarLivros(); // Recarrega a lista e estatísticas atualizadas
+            } else {
+                alert('Erro ao excluir livro.');
+            }
+        } catch (erro) {
+            console.error('Erro:', erro);
+        }
+    }
+}
